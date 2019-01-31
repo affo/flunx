@@ -14,7 +14,17 @@ public class Window implements Transformation<Row, List<Row>> {
     @Override
     public DataStream<List<Row>> apply(DAG.Node node, DataStream<Row> in) {
         String every = node.spec.get("spec").get("every").asText();
-        long secs = 10; // TODO
+
+        // TODO parse duration
+        StringBuilder sb = new StringBuilder();
+        for (char c: every.toCharArray()) {
+            if (Character.isDigit(c)) {
+                sb.append(c);
+            } else {
+                break;
+            }
+        }
+        long secs = Long.parseLong(sb.toString());
 
         return ((KeyedStream<Row, String>) in)
                 .timeWindow(Time.seconds(secs))

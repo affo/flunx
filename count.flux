@@ -1,0 +1,6 @@
+from(bucket: "kube-infra/monthly")
+  |> range(start: -10m)
+  |> filter(fn: (r) => r._measurement == "nginx" and r._field == "bytes_sent")
+  |> group(columns: ["uri"])
+  |> window(every: 1s)
+  |> count()

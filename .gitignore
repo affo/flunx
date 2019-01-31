@@ -3,3 +3,6 @@ target/
 .idea/
 *.jar
 *.class
+
+flux
+flink-install

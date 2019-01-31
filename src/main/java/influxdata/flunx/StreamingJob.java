@@ -19,47 +19,82 @@
 package influxdata.flunx;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.java.io.InfluxDBInputFormat;
+import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.Collector;
 import org.influxdb.dto.QueryResult;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class StreamingJob {
-    private static final String INFLUXDB_URL = "http://influxdb.monitoring.svc.cluster.local:8086";
-    private static final String INFLUXDB_USERNAME = "test";
-    private static final String INFLUXDB_PASSWORD = "test";
-    private static final String INFLUXDB_DATABASE = "kube-infra";
-    private static final String INFLUXDB_RP = "monthly";
-    private static final String INFLUXDB_MEASUREMENT = "nginx";
-    private static final String INFLUXDB_QUERY = "SELECT * FROM \"%s\".\"%s\".\"%s\" WHERE time > now() - 10s";
+    public static final String INFLUXDB_URL = "http://influxdb.monitoring.svc.cluster.local:8086";
+    public static final String INFLUXDB_USERNAME = "test";
+    public static final String INFLUXDB_PASSWORD = "test";
+
+    private static Map<String, Transformation> txs;
+
+    static {
+        txs = new HashMap<>();
+        txs.put("group", new GroupBy());
+        txs.put("count", new WindowCount());
+        txs.put("window", new Window());
+    }
+
+    // need an output, we suppose we have only one sink.
+    private static DataStream out;
 
     public static void main(String[] args) throws Exception {
         // set up the batch execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        final String query = String.format(INFLUXDB_QUERY, INFLUXDB_DATABASE, INFLUXDB_RP, INFLUXDB_MEASUREMENT);
-        env.createInput(InfluxDBInputFormat.create()
-                .url(INFLUXDB_URL)
-                .username(INFLUXDB_USERNAME)
-                .password(INFLUXDB_PASSWORD)
-                .database(INFLUXDB_DATABASE)
-                .query(query)
-                .and().buildIt())
-                .flatMap(new FlatMapFunction<QueryResult.Result, List<Object>>() {
+        DataStream<Row> rowStream = env.addSource(new InfluxDBSource())
+                .flatMap(new FlatMapFunction<QueryResult.Result, Row>() {
                     @Override
-                    public void flatMap(QueryResult.Result result, Collector<List<Object>> collector) throws Exception {
+                    public void flatMap(QueryResult.Result result, Collector<Row> collector) throws Exception {
+                        if (result.getSeries() == null) {
+                            return;
+                        }
+
                         for (QueryResult.Series series : result.getSeries()) {
+                            List<String> columns = series.getColumns();
                             for (List<Object> values : series.getValues()) {
-                                collector.collect(values);
+                                Row row = new Row(columns, values);
+                                collector.collect(row);
                             }
                         }
                     }
-                })
-                .print();
+                });
+
+        DAG dag = DAG.fromSPEC("count_spec.json");
+
+        dag.walk(new V(rowStream));
+        out.addSink(new InfluxDBSink());
 
         // execute program
-        env.execute("Flink Streaming Java API Skeleton");
+        env.execute("Flunx");
+    }
+
+    private static class V implements DAG.Visitor {
+        DataStream in;
+
+        public V(DataStream in) {
+            this.in = in;
+        }
+
+        @Override
+        public DAG.Visitor Visit(DAG.Node node) {
+            String kind = node.spec.get("kind").asText();
+            Transformation t = txs.get(kind);
+
+            if (t == null) {
+                return new V(in);
+            }
+
+            DataStream out = t.apply(node, in);
+            StreamingJob.out = out;
+            return new V(out);
+        }
     }
 }

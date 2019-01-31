@@ -1,0 +1,18 @@
+#!/bin/bash
+
+VERSION=1.6.1
+
+if [[ ! -d "./flink-install/" ]]; then
+  echo "No Flink installation detected"
+  echo "Please run ./local-install.sh"
+  return 1
+fi
+
+if [[ ! -d "./flink-install/flink-$VERSION/" ]]; then
+  echo "Wrong version in folder, expected $VERSION"
+  echo "Please check your installation"
+  return 1
+fi
+
+export FLINK_HOME=`pwd`/flink-install/flink-$VERSION
+export PATH=$FLINK_HOME/bin:$PATH

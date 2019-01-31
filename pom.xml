@@ -77,10 +77,16 @@ under the License.
 			<version>${flink.version}</version>
 		</dependency>
 		-->
+
 		<dependency>
-			<groupId>com.github.miwurster</groupId>
-			<artifactId>flink-influxdb</artifactId>
-			<version>1.0</version>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.9.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.influxdb</groupId>
+			<artifactId>influxdb-java</artifactId>
+			<version>2.10</version>
 		</dependency>
 
 		<!-- Add logging framework, to produce console output when running in the IDE. -->

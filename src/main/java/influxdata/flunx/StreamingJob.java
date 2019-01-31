@@ -16,33 +16,36 @@
  * limitations under the License.
  */
 
-package influxdata.affo;
+package influxdata.flunx;
 
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.io.InfluxDBInputFormat;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.Collector;
 import org.influxdb.dto.QueryResult;
 
 import java.util.List;
 
-public class BatchJob {
-    private static final String INFLUXDB_URL = "http://localhost:8086";
-    private static final String INFLUXDB_USERNAME = "root";
-    private static final String INFLUXDB_PASSWORD = "root";
-    private static final String INFLUXDB_DATABASE = "test";
-    private static final String INFLUXDB_QUERY = "SELECT * FROM \"m0\"";
+public class StreamingJob {
+    private static final String INFLUXDB_URL = "http://influxdb.monitoring.svc.cluster.local:8086";
+    private static final String INFLUXDB_USERNAME = "test";
+    private static final String INFLUXDB_PASSWORD = "test";
+    private static final String INFLUXDB_DATABASE = "kube-infra";
+    private static final String INFLUXDB_RP = "monthly";
+    private static final String INFLUXDB_MEASUREMENT = "nginx";
+    private static final String INFLUXDB_QUERY = "SELECT * FROM \"%s\".\"%s\".\"%s\" WHERE time > now() - 10s";
 
     public static void main(String[] args) throws Exception {
         // set up the batch execution environment
-        final ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-        long count = env.createInput(InfluxDBInputFormat.create()
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+
+        final String query = String.format(INFLUXDB_QUERY, INFLUXDB_DATABASE, INFLUXDB_RP, INFLUXDB_MEASUREMENT);
+        env.createInput(InfluxDBInputFormat.create()
                 .url(INFLUXDB_URL)
                 .username(INFLUXDB_USERNAME)
                 .password(INFLUXDB_PASSWORD)
                 .database(INFLUXDB_DATABASE)
-                .query(INFLUXDB_QUERY)
+                .query(query)
                 .and().buildIt())
                 .flatMap(new FlatMapFunction<QueryResult.Result, List<Object>>() {
                     @Override
@@ -54,17 +57,9 @@ public class BatchJob {
                         }
                     }
                 })
-                .map(new MapFunction<List<Object>, Double>() {
-                    @Override
-                    public Double map(List<Object> values) throws Exception {
-                        return (Double) values.get(values.size() - 1);
-                    }
-                })
-                .count();
+                .print();
 
-        System.out.println("The number of rows is " + count);
-
-        // No need to execute if there is a sink
-        //env.execute("Extracting from InfluxDB");
+        // execute program
+        env.execute("Flink Streaming Java API Skeleton");
     }
 }

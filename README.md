@@ -9,3 +9,5 @@ $ ./bin/flux compile @./queries/gen.flux > gen.spec
 $ mvn package
 $ ./flink-1.6.1/bin/flink run ./target/flunx.jar --spec ./gen.spec
 ```
+
+_NOTE_: It seems that running those commands prevents from seeing the output of the job. In order to see it run the job inside an IDE of your choice.

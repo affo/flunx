@@ -1,6 +1,5 @@
 package influxdata.flunx;
 
-import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.influxdb.BatchOptions;
@@ -13,7 +12,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by affo on 22/08/17.
  */
-public class InfluxDBSink<T extends Tuple> extends RichSinkFunction<T> {
+public class InfluxDBSink extends RichSinkFunction<Row> {
     private transient InfluxDB influxDB;
     private String dbName;
 
@@ -21,7 +20,7 @@ public class InfluxDBSink<T extends Tuple> extends RichSinkFunction<T> {
     public void open(Configuration parameters) throws Exception {
         super.open(parameters);
         influxDB = InfluxDBFactory.connect(
-                StreamingJob.INFLUXDB_URL, StreamingJob.INFLUXDB_USERNAME, StreamingJob.INFLUXDB_PASSWORD);
+                FluxJob.INFLUXDB_URL, FluxJob.INFLUXDB_USERNAME, FluxJob.INFLUXDB_PASSWORD);
         dbName = "streaming-job-test";
         influxDB.createDatabase(dbName);
         influxDB.setDatabase(dbName);
@@ -35,13 +34,11 @@ public class InfluxDBSink<T extends Tuple> extends RichSinkFunction<T> {
     }
 
     @Override
-    public void invoke(T t, Context context) throws Exception {
-        synchronized (influxDB) {
-            influxDB.write(Point.measurement(t.getField(0))
-                    .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-                    .addField("_value", (int) t.getField(1))
-                    .tag("path", t.getField(2))
-                    .build());
-        }
+    public void invoke(Row row, Context context) throws Exception {
+        influxDB.write(Point.measurement("nginx_request_count")
+                .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+                .addField("_value", (int) row.get("count"))
+                .tag("path", row.get("key").toString())
+                .build());
     }
 }

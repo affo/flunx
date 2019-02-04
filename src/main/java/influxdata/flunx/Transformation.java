@@ -1,7 +1,9 @@
 package influxdata.flunx;
 
-import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
-public interface Transformation<I, O> {
-    DataStream<O> apply(DAG.Node node, DataStream<I> in);
+import java.text.ParseException;
+
+public interface Transformation {
+    void chain(StreamExecutionEnvironment env, DAG.Node node) throws Exception;
 }

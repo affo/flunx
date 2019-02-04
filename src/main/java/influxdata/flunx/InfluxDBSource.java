@@ -22,7 +22,7 @@ public class InfluxDBSource extends RichSourceFunction<QueryResult.Result> {
     @Override
     public void open(Configuration parameters) throws Exception {
         influxDB = InfluxDBFactory.connect(
-                StreamingJob.INFLUXDB_URL, StreamingJob.INFLUXDB_USERNAME, StreamingJob.INFLUXDB_PASSWORD);
+                FluxJob.INFLUXDB_URL, FluxJob.INFLUXDB_USERNAME, FluxJob.INFLUXDB_PASSWORD);
         influxDB.setDatabase(INFLUXDB_DATABASE);
         influxDB.enableBatch(BatchOptions.DEFAULTS);
     }

@@ -4,5 +4,5 @@ target/
 *.jar
 *.class
 
-flux
 flink-install
+dependency-reduced-pom.xml

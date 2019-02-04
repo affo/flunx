@@ -1,23 +1,19 @@
 package influxdata.flunx;
 
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.KeyedStream;
-import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
+import org.apache.flink.streaming.api.datastream.WindowedStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.util.Collector;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class Window implements Transformation<Row, List<Row>> {
+public class Window implements Transformation {
     @Override
-    public DataStream<List<Row>> apply(DAG.Node node, DataStream<Row> in) {
-        String every = node.spec.get("spec").get("every").asText();
+    public void chain(StreamExecutionEnvironment env, DAG.Node node) {
+        // TODO account for different window types
+        String every = node.getSpec().get("every").asText();
 
-        // TODO parse duration
+        // TODO parse duration properly
         StringBuilder sb = new StringBuilder();
-        for (char c: every.toCharArray()) {
+        for (char c : every.toCharArray()) {
             if (Character.isDigit(c)) {
                 sb.append(c);
             } else {
@@ -26,17 +22,11 @@ public class Window implements Transformation<Row, List<Row>> {
         }
         long secs = Long.parseLong(sb.toString());
 
-        return ((KeyedStream<Row, String>) in)
-                .timeWindow(Time.seconds(secs))
-                .apply(new WindowFunction<Row, List<Row>, String, TimeWindow>() {
-                    @Override
-                    public void apply(String s, TimeWindow timeWindow, Iterable<Row> iterable, Collector<List<Row>> collector) throws Exception {
-                        List<Row> rows = new ArrayList<>();
-                        for (Row r : iterable) {
-                            rows.add(r);
-                        }
-                        collector.collect(rows);
-                    }
-                });
+        DAG.Stream inputStream = node.getInputStreams().get(0);
+
+        WindowedStream<Row, String, TimeWindow> ws = inputStream
+                .toKeyed() // must be partitioned
+                .timeWindow(Time.seconds(secs));
+        node.setOutputStream(ws);
     }
 }

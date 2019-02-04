@@ -2,36 +2,43 @@ package influxdata.flunx;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.KeyedStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
-public class GroupBy implements Transformation<Row, Row> {
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+public class GroupBy implements Transformation {
     @Override
-    public DataStream<Row> apply(DAG.Node node, DataStream<Row> in) {
-        String col = "";
+    public void chain(StreamExecutionEnvironment env, DAG.Node node) {
+        Set<String> cols = new HashSet<>();
 
-        // the last column
-        for (JsonNode c : node.spec.get("spec").get("columns")) {
-            col = c.asText();
+        for (JsonNode c : node.getSpec().get("columns")) {
+            cols.add(c.asText());
         }
 
-        String finalCol = col;
-        return in.keyBy(new KeySelector<Row, String>() {
-            @Override
-            public String getKey(Row row) throws Exception {
-                int idx = -1;
-                int count = 0;
+        DAG.Stream is = node.getInputStream();
 
-                for (String label : row.cols) {
-                    if (label.equals(finalCol)) {
-                        idx = count;
-                        break;
+        KeyedStream<Row, String> ks = is
+                .toVanilla() // must be a vanilla data stream
+                .keyBy(new KeySelector<Row, String>() {
+                    @Override
+                    public String getKey(Row row) throws Exception {
+                        int count = 0;
+                        List<String> tags = new ArrayList<>();
+
+                        for (String label : row.columns) {
+                            if (cols.contains(label)) {
+                                tags.add(row.values.get(count).toString());
+                            }
+                            count++;
+                        }
+
+                        return String.join("-", tags);
                     }
-                    count++;
-                }
-                String tag = row.vals.get(idx).toString();
-                row.tags.add(tag);
-                return tag;
-            }
-        });
+                });
+        node.setOutputStream(ks);
     }
 }

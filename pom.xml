@@ -106,6 +106,8 @@ under the License.
     </dependencies>
 
     <build>
+        <finalName>flunx</finalName>
+
         <plugins>
 
             <!-- Java Compiler -->

@@ -12,7 +12,7 @@ public class FluxJob {
     public static void main(String[] args) throws Exception {
         env = StreamExecutionEnvironment.getExecutionEnvironment();
         ParameterTool params = ParameterTool.fromArgs(args);
-        String specPath = params.get("spec");
+        String specPath = params.getRequired("spec");
 
         DAG dag = DAG.fromSPEC(specPath);
         dag.walk(DAG.Node::chainTransformation);
